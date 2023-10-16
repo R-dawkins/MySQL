@@ -455,4 +455,136 @@ select emp_id,emp_name,dept_id,hire_date, concat('id : ', dept_id) did from empl
 select * from department
 	where dept_id = (select dept_id from employee where emp_name = '홍길동');
 
-    
+/*
+	두 개 이상의 테이블에 대한 쿼리
+    -조인(Join)과, 서브쿼리(SubQuery)
+*/
+
+-- 워크벤치 툴에서 데이터베이스 기준 ERD 생성
+-- DATABASE > REVERSE ENGINEER.. > 과정 진행 후 원하는 database선택 > next...finish
+
+/*
+	조인(Join)
+		ANSI-SQL		ORACLE
+    1. CROSS JOIN <-(합집합 : *)-> CARTESIAN JOIN (실시간 서비스시에는 잘 쓰지 않는다 성능이 중요하기 때문,잘못 사용하면 서버가 마비될 수 있다. 관계성이 없는 테이블끼리 사용) 
+    2. INNER JOIN <-(교집합)-> EQUI JOIN (자주 사용하니 매우 중요, 관계성이 있는 테이블끼리 사용 )
+    3. OUTER JOIN <-(교집합 + 교집합에서 제외된 데이터)-> OUTER JOIN (누락데이터 없게 )
+    4. SELF  JOIN <--> SELF JOIN (요즘엔 잘 쓰이지 않고 Subquery로 처리되는것이 효율적이고 일반적임)
+*/
+
+-- A 주머니 - 빨간색구슬, 노란색구슬
+-- B 주머니 - 파란색구슬, 보라색구슬
+-- A,B에 담긴 전체 구슬 --> 빨,노,파,보 구슬 : 4개(2*2) ---> -- Cross join
+-- B에 빨간색 구슬이 추가되었을 때 A,B에 담긴 구슬 중 같은 색깔의 구슬 : 빨간색 >> Inner join
+-- A,B에 담긴 구슬 중 같은 색깔 구슬은 1개만 꺼내고 다른 색깔도 함께 꺼냄 --> 빨간색(1), 노란색, 파란색, 보라색 >>Outer join
+-- A,B에 담긴 구슬 중 같은 색깔 구슬은 1개만 꺼내고 다른 색깔도 함께 꺼냄 그러나 B주머니에서만 --> 빨간색(1), 파란색, 보라색 >>Outer join
+
+-- hrdb2019 데이터 베이스의 모든 테이블 조회
+-- 형식 : select [컬럼리스트] from information_schema.tables where table_schema = '데이터베이스명'
+show tables from hrdb2019;
+
+select * from information_schema.tables where table_schema = 'hrdb2019';
+desc department;
+desc employee;
+desc unit;
+desc vacation;
+
+-- department(dept_id:PK) <---참조--- employee(dept_id:FK)
+-- 이에서 도출되는 명제 : 사원은 하나이상의 부서에 반드시 포함된다.
+
+-- 한 학생은 하나의 과목을 반드시 수강해야한다 
+-- 과목(sub_id:PK) <------ 학생(sub_id:FK).
+
+-- 한 명의 고객은 하나 이상의 상품을 주문할 수 있다.
+-- 고객() <---- 주문() ----> 상품()
+
+-- unit(unit_id:PK) <----- department(unit_id:FK)
+-- Vacation(vacation_id:PK) <----- X
+-- Employee(emp_id:PK) <---- Vacation(emp_id:FK)
+-- ERD(Entity Relationship Diagram) 데이터베이스의 테이블 간의 구조를 그림으로 그려내어 그 관계를 도출한 다이어그램
+
+-- 정보시스템 부서에 속한 홍길동 사원이 사용한 휴가일수 조회
+-- department <---- employee <---- vacation
+
+-- 1. CROSS JOIN : 테이블*테이블*테이블...
+-- 형식 : select * from 테이블명 join 테이블명
+-- employee 테이블과 department 테이블을 cross Join(cross join은 cross를 생략가능하다)
+select count(*) from employee join department; -- 20 * 7 
+select * from department cross join employee; -- 7 * 20
+select count(*) from employee; -- 20
+select count(*) from department; -- 7
+
+-- department 부서와 vacation 부서를 조인하시오
+select count(*) from department; -- 7
+select count(*) from vacation; -- 102
+select count(*) from department join vacation; -- 714
+select count(*) from department, vacation; -- 714 (oracle을 벤치마킹했기 때문에 oracle에서 사용하는 형식을 일부 공유하는 것이 있다)
+
+-- department 부서와 vaction 부서, employee를 조인
+select count(*) from department as d join vacation as v join employee as e; -- 14280
+select count(*) from department d,vacation v,employee e; -- 14280
+
+select count(*)
+from (select * from department join vacation) as a
+join 
+	 (select * from department join vacation) as b;
+     
+-- excution plan 실행 계획 
+-- 각각의 테이블을 스캔하여 곱해서 쿼리블록완성
+-- 쿼리탭의 번개모양+돋보기모양 버튼 클릭
+-- query cost : 쿼리를 실행하는데 쓰인 비용(시간등의 여러 복합적요소) 비용이 낮을수록 효율적이라고 할 수 있다.
+
+-- 2. Inner join : 테이블간의 기본키와 참조관계가 정의된 경우 사용 (ERD를 확인하면 관계파악이 쉽다)
+-- 형식(ANSI-SQL) : select * from 테이블명1 Inner join 테이블명2 on 테이블1.기본키(참조키) = 테이블2.참조키(기본키);  테이블1.기본키 -> 테이블2.참조키 or 참조키 -> 기본키
+-- 형식(오라클) : SELECT * FROM 테이블1, 테이블2 WHERE 테이블1.기본키 = 테이블2.참조키; 
+select * from department inner join employee on department.dept_id = employee.dept_id; -- ANSI-SQL
+SELECT count(*) FROM department d, employee e WHERE d.dept_id = e.dept_id; -- ORACLE
+
+-- 사원id, 사원명,부서id,부서명, 부서생성 날짜 조회 공통되는 컬럼인 dept_id의 소속을 명확하게 해주어야 한다.
+select e.emp_id,e.emp_name,d.dept_name,d.start_date,d.dept_id from employee e inner join department d on e.dept_id = d.dept_id order by emp_id;
+-- ANSI-SQL department의 dept_id를 조회
+SELECT EMP_ID,EMP_NAME,DEPT_NAME,START_DATE,E.DEPT_ID FROM DEPARTMENT D, EMPLOYEE E WHERE D.DEPT_ID = E.DEPT_ID order by emp_id;
+-- ORACLE  employee의 dept_id를 조회
+
+-- 홍길동 사원의 부서의 이름과 부서id, 입사일, 연봉을 조회
+select emp_name,e.dept_id,dept_name,hire_date,salary from employee e inner join department d on e.dept_id = d.dept_id and emp_name = '홍길동';
+-- execute plan(실행계획)에서 보면 employee에서 emp_name이 홍길동인 데이터부터 찾고 그다음에 홍길동의 e.dept_id와 같은 department의 d.dept_id를 찾아서 조인
+-- 1 - employee에서 emp_name이 홍길동인 데이터 탐색
+-- 2 - 홍길동의 dept_id와 department의 dept_id 조인
+
+-- 영업부에 속해 있는 사원들의 사원명, 입사일, 연봉을 조회
+select emp_name,dept_name,d.dept_id,hire_date,salary from department d inner join employee e on d.dept_id = e.dept_id and d.dept_id = 'MKT';
+select d.dept_id, d.dept_name, e.emp_name, e.hire_date, e.salary from employee e inner join department d on e.dept_id = d.dept_id and d.dept_name = '영업';
+
+-- 인사과에 속한 모든 사원의 정보를 조회
+select * from employee e inner join department d on e.dept_id = d.dept_id and d.dept_name = '인사';
+
+-- 조건에 해당하는 테이블의 가장 작은 데이터셋을 만들어 조인을 한다 (데이터 효율)
+
+-- 인사과에 속한 사원들 중에 휴가를 사용한 사원들 모두 조회
+select * from department d inner join employee e inner join vacation v
+on d.dept_id = e.dept_id -- 2
+and e.emp_id = v.emp_id -- 3
+and d.dept_name = '인사'; -- 1
+/*
+	execute plan(실행계획) 순서
+	first - d.dept_name = '인사'
+    second - d.dept_id = e.dept_id
+    third - e.emp_id = v.emp_id
+    forth - select *
+*/
+
+-- 인사과에 속한 사원들 중에 휴가를 사용한 사원들 별로 휴가사용횟수 출력 (서브쿼리)
+select emp_name, count(*) from (select * from department d inner join employee e inner join vacation v
+on d.dept_id = e.dept_id
+and e.emp_id = v.emp_id
+and d.dept_name = '인사') group by emp_name;
+
+-- 휴가 사용 이유가 '두통'인 사원들 중에 영업부서인 사원의 사원명, 부서명, 폰번호 휴가사용 이유 조회
+-- 영업 부서가 속한 본부를 추가로 조회
+select e.emp_name,d.dept_name,e.phone,v.reason,u.unit_name from department d inner join employee e inner join vacation v inner join unit u
+on d.dept_id = e.dept_id
+and e.emp_id = v.emp_id
+and d.unit_id = u.unit_id
+and v.reason = '두통'
+and d.dept_name = '영업'; -- 자체적으로 두통을 먼저 찾을지 영업을 먼저 찾을지 계산하여 데이터셋이 더 작은 영업을 먼저 찾음
