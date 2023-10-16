@@ -149,10 +149,15 @@ on o.customer_id = c.customer_id and e.employee_id = o.employee_id and o.total_d
 -- Q06) 위에서 작성한 쿼리문을 복사해 붙여 넣은 후 전체금액이 8,500,000 이상인 '서울' 지역 '남자' 고객만 조회되게 수정하세요.
 select o.order_id,c.city,c.gender,c.customer_id,c.customer_name,e.employee_name,e.employee_id,o.order_date,o.total_due from order_header o inner join customer c inner join employee e
 on o.customer_id = c.customer_id and e.employee_id = o.employee_id and o.total_due >= 8500000 and city ='서울' and c.gender = 'M';
--- Q07) 주문수량이 30개 이상인 주문의 주문번호, 상품코드, 주문수량, 단가, 지불금액을 조회하세요.
-select order_id,product_id,order_qty,unit_price,line_total from order_detail where order_qty >= 30;
+-- Q07) 주문수량이 30개 이상인 주문의 주문번호, 상품코드, 주문수량, 단가, 지불금액(total due)을 조회하세요.
+select order_id,product_id,order_qty,unit_price,line_total from order_detail where order_qty >= 30; -- 지불 금액이 line_total일 때
+select d.order_id,d.product_id,d.order_qty,d.unit_price,d.line_total,h.total_due 
+from order_detail d inner join order_header h 
+on d.order_id = h.order_id and order_qty >= 30; -- 지불금액이(total_due)일때
 -- Q08) 위에서 작성한 쿼리문을 복사해서 붙여 넣은 후 상품이름도 같이 조회되도록 수정하세요.
-select o.order_id,o.product_id,o.order_qty,o.unit_price,o.line_total,p.product_name from order_detail o inner join product p where o.order_qty >= 30;
+select d.order_id,d.product_id,d.order_qty,d.unit_price,d.line_total,h.total_due,p.product_name 
+from order_detail d inner join order_header h inner join product p 
+on d.order_id = h.order_id and d.product_id = p.product_id and order_qty >= 30;
 -- Q09) 상품코드, 상품이름, 소분류아이디를 조회하세요.
 select product_id,product_name,sub_category_id from product;
 -- Q10) 위에서 작성한 쿼리문을 복사해서 붙여 넣은 후 소분류이름, 대분류아이디가 조회되게 수정하세요.
