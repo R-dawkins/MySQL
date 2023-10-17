@@ -582,9 +582,192 @@ and d.dept_name = '인사') group by emp_name;
 
 -- 휴가 사용 이유가 '두통'인 사원들 중에 영업부서인 사원의 사원명, 부서명, 폰번호 휴가사용 이유 조회
 -- 영업 부서가 속한 본부를 추가로 조회
-select e.emp_name,d.dept_name,e.phone,v.reason,u.unit_name from department d inner join employee e inner join vacation v inner join unit u
+select e.emp_name,d.dept_name,e.phone,v.reason,u.unit_name 
+from department d inner join employee e 
+inner join vacation v inner join unit u
 on d.dept_id = e.dept_id
 and e.emp_id = v.emp_id
 and d.unit_id = u.unit_id
 and v.reason = '두통'
 and d.dept_name = '영업'; -- 자체적으로 두통을 먼저 찾을지 영업을 먼저 찾을지 계산하여 데이터셋이 더 작은 영업을 먼저 찾음
+
+select e1.emp_name, e1.phone,d.dept_name,u.unit_name,v.reason
+from
+employee e1 inner join department d on e1.dept_id = d.dept_id,
+employee e2 inner join vacation v on e2.emp_id = v.emp_id,
+department d1 inner join unit u on u.unit_id = d1.unit_id
+where v.reason = '두통' and d.dept_name = '영업';
+-- sequal-sql
+
+select e.emp_name, e.phone,d.dept_name,u.unit_name,v.reason
+from
+employee e inner join department d on e.dept_id = d.dept_id
+		   inner join vacation v on e.emp_id = v.emp_id
+		   inner join unit u on u.unit_id = d.unit_id
+           
+where v.reason = '두통' and d.dept_name = '영업';
+
+
+-- 2014년부터 2015년까지 입사한 사원들 중에서 퇴사하지 않은 사원들의 사원아이디,사원명,부서이름,입사일,소속 본부
+select e.emp_id,e.emp_name,d.dept_name,e.hire_date,e.retire_date,u.unit_name
+from employee e inner join department d inner join unit u on e.dept_id = d.dept_id and u.unit_id = d.unit_id
+where left(hire_date,4) between '2014' and '2015' and retire_date is null; -- ansi-sql
+
+select e.emp_id,e.emp_name,d.dept_name,e.hire_date,e.retire_date,u.unit_name
+from employee e,department d,unit u
+where e.dept_id = d.dept_id and u.unit_id = d.unit_id and left(hire_date,4) between '2014' and '2015' and retire_date is null; -- oracle
+
+-- 3. OUTER JOIN : 교집합(INNER JOIN) + INNER JOIN에서 제외된 데이터를 함께 출력
+/*  형식 : SELECT [컬럼리스트] 
+	FROM TABLE1 INNER JOIN TABLE2 ON JOINCOLUMN = JOINCOLUMN
+    LEFT OUTER JOIN / RIGHT OUTER JOIN ON JOINCOLUMN = JOINCOLUMN
+    INNER JOIN 기준으로 LEFT, RIGHT가 나뉜다
+    현재 LEFT는 TABLE1 RIGHT는 TABLE2이다
+    E.EMP_ID = V.EMP_ID(+) => 오라클 형식
+    SELECT [컬럼리스트] FROM TABLE1 LEFT/RIGHT OUTER JOIN TABLE2 ON JOINCOLUMN = JOINCOLUMN => 발전한 요즘 형식
+    *** OUTER JOIN을 사용시에는 반드시 누락되는 데이터가 없도록 확인
+    OUTER JOIN은 INNER JOIN + 제외된 데이터(JOINCOLUMN이 NULL인 데이터)
+*/
+-- 모든 부서의 정보와 소속 본부명을 함께 조회
+SELECT * FROM DEPARTMENT D RIGHT OUTER JOIN UNIT U ON D.UNIT_ID = U.UNIT_ID; -- 전략기획이 출력되지않음 데이터 누락
+SELECT * FROM UNIT U RIGHT OUTER JOIN DEPARTMENT D ON D.UNIT_ID = U.UNIT_ID; -- 전략기획이 출력됨
+SELECT * FROM DEPARTMENT D LEFT OUTER JOIN UNIT U ON D.UNIT_ID = U.UNIT_ID;
+
+/* 
+	SELECT DEPT_ID, DEPT_NAME, UNIT_NAME
+	FROM DEPARTMENT D, UNIT U
+	WHERE D.UNIT_ID(+) = U.UNIT_ID;
+    ORACLE 방식 
+*/
+
+-- 2017년도부터 2018년도까지 입사한 사원들의 사원명, 입사일, 연봉, 부서명 모두 조회 단, 퇴사한 사원들도 모두 조회
+-- 소속 본부를 모두 조회
+select emp_name,hire_date,salary,dept_name,retire_date,e.dept_id from employee e right outer join department d on e.dept_id = d.dept_id where left(hire_date,4) between '2017' and '2018';
+
+select emp_name,hire_date,salary,dept_name,retire_date,e.dept_id,u.unit_name 
+from employee e 
+inner join department d on e.dept_id = d.dept_id 
+left outer join unit u on u.unit_id = d.unit_id	/* innerjoin을 한 결과를 가지고 outer join을 하는 것 */
+where left(hire_date,4) between '2017' and '2018';
+
+/*
+	select emp_name,hire_date,salary,dept_name,retire_date,e.dept_id,u.unit_name 
+	from employee e, department d,unit u 
+	where e.dept_id = d.dept_id 
+	and u.unit_id(+) = d.unit_id	 null을 가지게 되는 테이블에 (+) : oracle형식 
+	and left(hire_date,4) between '2017' and '2018';
+*/
+
+/* 
+	서브쿼리 : 메인쿼리(조회하는 컬럼리스트)에 서브쿼리를 추가하여 실행하는 형식
+	select 컬럼리스트 	  from 테이블명 	where 조건절
+		(스칼라 서브쿼리)     (인라인뷰) 		(서브쿼리)
+        (오라클에서는 지원x) 
+*/
+
+-- 홍길동 사원이 속한 부서의 이름을 출력
+select dept_name from employee e inner join department d on e.dept_id = d.dept_id where emp_name = '홍길동'; -- innerjoin
+select dept_name from department where dept_id = (select dept_id from employee where emp_name = '홍길동'); -- 서브쿼리 (row가 하나인 서브쿼리는 단일행서브쿼리라고 한다 여러개면 다중행)
+
+-- 홍길동 사원이 사용한 휴가 내역을 조회
+select vacation_id,reason,emp_id from vacation where emp_id = (select emp_id from employee where emp_name = '홍길동');
+
+-- 제3본부에 속해있는 부서들을 조회
+select * from department where unit_id = (select unit_id from unit where unit_name = '제3본부');
+
+-- 제3본부에 속해있는 모든 사원들을 조회
+-- 단일행 서브쿼리 : 서브쿼리를 실행한 결과가 1행만 출력되는 경우
+-- 다중행 서브쿼리 : 서브쿼리를 실행한 결과가 2행 이상 출력되는 경우
+select * from employee where dept_id in(select dept_id from department where unit_id = (select unit_id from unit where unit_name = '제3본부'));
+
+-- 가장 먼저 입사한 사원의 정보를 출력
+select * from employee where hire_date = (select min(hire_date) from employee);
+
+-- 휴가를 간 적이 있는 정보시스템 부서의 사원들을 출력
+
+select * from employee 
+where emp_id 
+in(select distinct emp_id from vacation where emp_id in(select emp_id from employee where dept_id = (select dept_id from department where dept_name = '정보시스템'))); -- 비효율적인 쿼리
+
+-- 휴가를 간 적이 없는 정보시스템 부서의 사원들을 출력
+select * from employee
+where dept_id = (select dept_id from department where dept_name ='정보시스템')
+and emp_id not in (select distinct emp_id from vacation);
+
+-- 사원별 휴가사용 일수를 그룹핑하여, 사원아이디, 사원명, 입사일, 연봉, 휴가사용일수 조회
+-- 휴가 사용일수를 구하는 인라인 뷰와 사원 테이블을 조인
+select * from employee e left outer join (select emp_id,sum(duration) as duration from vacation group by emp_id) v on e.emp_id = v.emp_id; -- outer join (휴가를 쓰지 않은 사람들 포함)
+select * from employee e inner join (select emp_id,sum(duration) as duration from vacation group by emp_id) v on e.emp_id = v.emp_id; -- inner join (휴가를 쓰지 않은 사람들은 포함되지않음)
+
+-- 휴가 사용일수와 사원정보, 모든 사원, 휴가 사용일수가 없는 사원은 0으로
+select e.emp_id,e.emp_name,e.hire_date,ifnull(e.salary,0) as salary,ifnull(v.duration,0) as duration
+from employee e left outer join (select emp_id,sum(duration) as duration from vacation group by emp_id) v 
+on e.emp_id = v.emp_id;
+
+select count(*) from (select e.emp_id,e.emp_name,e.hire_date,e.salary,v.duration 
+from employee e inner join (select emp_id,sum(duration) as duration from vacation group by emp_id) v 
+on e.emp_id = v.emp_id) vp; -- count 그룹함수를 사용하려고 할 때 
+
+-- myshop2019
+use myshop2019;
+select database();
+select count(*) from category;
+select count(*) from sub_category;
+select count(*) from product;
+
+select c.category_id, c.category_name, s.sub_category_id,s.sub_category_name,p.product_id,p.product_name from category c
+inner join sub_category s
+inner join product p
+on c.category_id = s.category_id and s.sub_category_id = p.sub_category_id;
+-- ansi-sql
+
+select * from category c,sub_category s, product p
+where c.category_id = s.category_id and s.sub_category_id = p.sub_category_id;
+-- oracle
+
+select c.category_id, c.category_name, s.sub_category_id,s.sub_category_name,p.product_id,p.product_name from category c
+inner join sub_category s on c.category_id = s.category_id
+inner join product p on s.sub_category_id = p.sub_category_id;
+-- sequal-sql
+
+select count(*)
+from category c
+inner join sub_category s
+inner join product p
+on c.category_id = s.category_id and s.sub_category_id = p.sub_category_id;
+
+-- 카테고리별 상품명 조회
+
+select c.category_id, c.category_name, p.product_id,p.product_name,s.sub_category_id from category c
+inner join sub_category s on c.category_id = s.category_id
+inner join product p on s.sub_category_id = p.sub_category_id;
+-- 데이터 용량이 제한되어 있기 때문에 반복되는 데이터를 최대한 제거하려고 데이터를 분리한 것이다 (정규화 과정 <> 반정규화=역정규화도 있음 정규화의 반대)
+-- 과도한 정규화도 시스템에 과부하를 줄 수 있다 그럴 때 반정규화(역정규화) 작업이 필요하다
+
+-- 2018년 기준 상품별 주문건수 조회 - 주문날짜order_date, 상품명product_name, 총주문건수
+select left(order_date,4),g.product_name,sum(order_qty) from (select h.order_date,p.product_name,order_qty as order_qty
+from order_header h
+inner join order_detail d
+inner join product p
+on h.order_id = d.order_id
+and d.product_id = p.product_id and left(order_date,4) = '2018') g group by product_name, left(order_date,4);
+
+select row_number() over(order by order_date) as number, order_date,product_name,order_qty from (select left(order_date,4) order_date,g.product_name,sum(order_qty) order_qty from (select h.order_date,p.product_name,order_qty as order_qty
+from order_header h
+inner join order_detail d
+inner join product p
+on h.order_id = d.order_id
+and d.product_id = p.product_id and left(order_date,4) = '2018') g group by product_name, left(order_date,4)) g;
+
+select row_number()  over(order by product_name) as number,left(order_date,4),product_name,sum(order_qty) from (select oh.order_date,p.product_name,od.order_qty
+from order_detail od, order_header oh, product p
+where od.order_id = oh.order_id
+and od.product_id = p.product_id
+and left(order_date,4) = '2018') g group by left(order_date,4),product_name;
+-- 그룹핑 할 데이터가 유니크한지 확인을 해야한다 유니크하면 그룹핑이 되지 않는다
+
+-- 행번호 생성 함수
+-- 형식 : select row_number() over(order by 기준으로삼을컬럼명), 컬럼리스트,...
+select row_number()  over(order by customer_id) as number, customer_name from customer;
+
+-- 고객별 주문건수 출력 : 고객아이디, 고객명, 주문건수
