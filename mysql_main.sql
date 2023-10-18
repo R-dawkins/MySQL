@@ -771,3 +771,263 @@ and left(order_date,4) = '2018') g group by left(order_date,4),product_name;
 select row_number()  over(order by customer_id) as number, customer_name from customer;
 
 -- 고객별 주문건수 출력 : 고객아이디, 고객명, 주문건수
+
+
+/*
+	DDL : Database Definition language
+    - 데이터베이스의 테이블 구조 생성, 삭제, 변경
+    - 결과가 db에 바로 반영 (반영구적인변경)
+    테이블 생성 : create table
+    테이블 삭제 : drop table
+    테이블 변경 : alter table
+    
+    DML : Database Manipulation Language
+    - 데이터 생성, 변경, 삭제
+    데이터 생성 : insert into
+    데이터 변경 : update
+    데이터 삭제 : delete
+    데이터 조회 : select
+    DML은 데이터가 바로 물리적으로 저장되지는 않는다
+    그래서 그와 같은 데이터를 유령 데이터(phantom data)라고 한다
+    commit으로 db에 물리적으로 저장이 가능하다
+*/
+
+-- 테이블 생성
+-- 테이블 목록 조회
+desc information_schema.tables;
+
+-- hrdb2019 데이터베이스의 모든 테이블 조회
+select * from information_schema.tables
+where table_schema = 'hrdb2019';
+-- oracle의 경우에는 :user_tables 데이터 딕셔너리 테이블
+
+-- 툴에 의존하지 않고 cmd 환경에서도 sql을 활용할 수 있는 기술을 가지는 것이 좋다
+
+-- 테이블 생성
+-- 형식 : create table [만들테이블이름(중복X)](컬럼명 데이터타입(크기) [제약사항], ... )
+desc employee;
+-- emp 테이블 생성 : emp_id 문자(10),emp_name 문자(20),hire_date 날짜,salary 숫자
+create table emp(
+	emp_id char(10),  -- 고정형 문자 데이터 타입 크기(용량)이 모두 같음
+    emp_name varchar(20),  -- 가변형 문자 데이터 타입 크기(용량)이 다양함 한계 크기를 초과하면 데이터가 잘릴수 있다
+    hire_date date,
+    salary int -- 4바이트 숫자 4글자
+);
+desc emp;
+select * from information_schema.tables
+where table_schema = 'hrdb2019';
+
+-- 테이블 삭제
+-- drop table [테이블명];
+
+select * from information_schema.tables
+where table_schema = 'hrdb2019';
+
+-- 테이블 생성(복제)
+-- 형식 : Create table [테이블명]
+-- 		  As
+--        Select ~
+-- cas라고 부른다
+-- 복제한 테이블에는 원본의 제약사항은 포함되지 않는다.
+
+-- employee 테이블을 복제하여 emp2 테이블 생성
+create table emp2
+as
+select * from employee;
+
+-- employee 테이블의 구조만 복제
+create table employee_copy
+as
+select * from employee where 1 = 0; -- row들은 가져오지않음
+
+select * from information_schema.tables
+where table_schema = 'hrdb2019';
+
+desc employee_copy; 
+desc employee;
+select * from employee_copy;
+
+-- 정보시스템 부서의 사원들만 별도의 테이블 employee_sys 테이블에 저장
+create table employee_sys
+as
+select * from employee where dept_id = (select dept_id from department where dept_name = '정보시스템');
+
+select * from information_schema.tables
+where table_schema = 'hrdb2019';
+
+-- 데이터 생성(추가)
+-- 형식 : insert into [테이블명] {(컬럼리스트)} values (데이터리스트) ; 컬림리스트의 순서와 맞추어서 데이터리스트를 작성해야한다
+-- 생략가능한 옵션은 {}로 감싸져있다
+
+insert into emp (emp_id, emp_name, hire_date, salary) -- oracle 형식
+values ('hong','홍길동',curdate(),1234);
+-- commit; 커밋으로 phantom data를 물리적으로 저장한다
+select * from emp;
+
+insert emp values ('yang','양호승',curdate(),9999); -- ansi-sql 형식, 컬럼리스트 생략, 컬럼리스트 생략 시 만들때의 컬럼리스트를 기준으로 한다 (desc에서 확인가능)
+desc emp;
+-- 
+insert emp (emp_name,hire_date,salary,emp_id) values ('hong1','홍길동',curdate(),1234); -- 컬럼리스트의 순서를 지키지 않으면 type error 발생
+insert emp (emp_name,hire_date,salary,emp_id) values ('테스트',curdate(),1234,'test');
+
+insert emp values ('test2', '테스트', curdate(), null);
+rollback; -- set autocommit(true); 현재 오토커밋이 켜진 상태여서 롤백이 되지않으나 오토커밋이 꺼진 상태에서 커밋을 하지 않고 롤백을 하면 모든 데이터가 최종커밋직후로 롤백된다
+delete from emp where emp_id = 'yang';
+select * from emp;
+
+-- constraint(제약사항) : insert, update, delete
+-- 중복 체크 : unique
+-- null 체크 : not null
+-- 기본키 제약(unique + not null) : primary key
+-- 참조키 제약 : foreign key - 연관성이 있는 다른 테이블의 primary key를 참조할 때 
+-- default : 기본값 지정 (값이 들어오지 않았을 시 지정한 기본값을 부여)
+-- check : 특정한 값이 들어왔을 시 확인하여 거부
+
+-- 테이블 생성 시 제약사항 추가
+-- emp2 테이블에 제약사항 : emp_id(문자 4,기본키 제약),emp_name(문자 10, not null)
+create table emp3(
+	emp_id char(4) primary key,
+    emp_name varchar(10) not null,
+    hire_date date,
+    salary int
+    );
+select * from information_schema.tables where table_schema = 'hrdb2019';
+desc emp3;
+insert emp3 values ('hone','홍길동',curdate(),8000);
+select * from emp3;
+
+-- 제약사항 조회
+desc information_schema.table_constraints;
+select * from information_schema.table_constraints where table_name = 'emp3';
+select * from information_schema.tables where table_schema = 'hrdb2019';
+
+-- emp 3 테이블에 제약사항 : emp_id(문자 4,기본키 제약),emp_name(문자 10, not null)
+-- 제약사항 이름 규칙 : 테이블명_컬럼명_제약사항명 (회사마다 다른 규칙)
+
+create table emp3(
+	emp_id char(4),
+    emp_name varchar(10) not null,
+    hire_date date,
+    salary int,
+    constraint emp3_emp_id_pk primary key (emp_id)
+    );
+-- primary key의 constraint name은 생성 할 때 지정할 수는 없는 것으로 보인다.
+-- https://g.co/bard/share/8c59c40c7a6e
+
+-- 참조키 제약 설정 : 두 개 이상의 참조 관계가 설정되어 있는 경우
+-- [학사관리 시스템 설계]
+-- 학생은 반드시 하나 이상의 과목을 수강해야 한다.
+-- 교수는 반드시 하나 이상의 과목을 강의해야 한다.
+-- 학생명 과목명 교수명
+-- 홍길동 파이썬 김교수
+-- 아무개 파이썬 김교수
+-- 분리하지 않으면 중복되는 데이터가 많이 발생한다.
+-- 이를 분리하는 작업이 정규화 과정
+-- 참조키 생성
+-- 형식 : constraint [제약명] foreign key(참조되는컬럼) references 참조할테이블명(참조할컬럼:PK인컬럼이권장됨)
+
+-- 과목 테이블 생성 : subject
+-- 컬럼 : 과목id(sub_id), 과목명(sub_name), 등록일자(sdate)
+-- 과목 id를 기본키로 설정
+
+-- 학생 테이블 생성 : student
+-- 컬럼 : 학번(sid:문자4), 학생명(sname:문자10), 학과(dept), 과목id(sub_id), 이메일(email)
+-- 학번은 기본키로 설정, 수강과목은 과목 테이블을 참조한다.
+
+-- 교수 테이블 생성 : professor
+-- 컬럼 : 교수id(pid), 교수명(pname), 폰번호(phone) , 과목id(sub_id)
+
+create table subject(
+	sub_id char(4),
+    sub_name varchar(30) not null,
+    sdate date,
+    constraint subject_sub_id_pk primary key(sub_id)
+);
+drop table subject;
+select * from information_schema.table_constraints where table_name = 'subject';
+select * from information_schema.tables where table_name = 'subject';
+desc subject;
+
+create table student(
+	sid char(4),
+    sname varchar(20) not null,
+    dept varchar(20),
+    sub_id char(4), -- 컬럼명은 달라도 되지만 데이터타입은 같아야함, 보통 컬럼명은 참조할 컬럼과 같게 한다.
+    email varchar(20),
+    constraint student_sid_pk primary key(sid),
+    constraint student_sub_id_fk foreign key(sub_id) references subject(sub_id)
+);
+select * from information_schema.table_constraints where table_name = 'student';
+select * from information_schema.tables where table_name = 'student';
+desc student;
+
+create table professor(
+	pid char(4),
+    pname varchar(20) not null,
+    phone varchar(20),
+    sub_id char(4),
+    constraint professor_pid_pk primary key(pid),
+    constraint professor_sub_id_fk foreign key(sub_id) references subject(sub_id)
+);
+select * from information_schema.table_constraints where table_name = 'professor';
+select * from information_schema.tables where table_name = 'professor';
+desc professor;
+
+-- 참조관계에서의 데이터 생성(추가)
+-- 가장 먼저 데이터가 추가 되어져야 하는 테이블 => 참조 할 기본키를 가진 테이블
+-- 과목 데이터 생성
+desc subject;
+insert subject values('S001','HTML',curdate());
+insert into subject(sub_id,sub_name,sdate) values('S002','React',curdate());
+insert into subject(sub_id,sub_name,sdate) values('S003','MySQL',curdate());
+insert into subject(sub_id,sub_name,sdate) values('S004','Node',curdate());
+commit;
+select * from subject;
+
+-- 학생 데이터 생성
+desc student;
+insert student values('ST05','홍길동','컴퓨터공학','S003','hong@naver.com');-- 반드시 참조 할 기본키를 가진 컬럼의 데이터중 하나를 넣어야한다
+insert student values('ST02','아무개','컴퓨터공학','S003','amudog@naver.com');
+insert student values('ST06','테스트','컴퓨터공학','S002','test@naver.com');
+insert student values('ST04','제인도','컴퓨터공학','S001','janedoe@naver.com');
+select * from student;
+
+-- 교수 데이터 생성
+desc professor;
+insert professor values('P001','김교수','010-1234-5678','S001');
+insert professor values('P002','김리액트','010-1234-5678','S002');
+insert professor values('P003','김에스큐엘','010-1234-5678','S003');
+insert professor values('P004','김노드','010-1234-5678','S004');
+select * from professor;
+
+-- 홍길동 학생이 수강하고 있는 과목의 교수명을 출력
+select * from subject s,student t,professor p
+where s.sub_id = t.sub_id and s.sub_id = p.sub_id and sub_name in(select sub_name from subject where sub_id in(select sub_id from student where sname = '홍길동'));
+
+select p.pname,s.sub_name,t.sname from subject s,student t,professor p
+where s.sub_id = t.sub_id and s.sub_id = p.sub_id and t.sname = '홍길동';
+-- ansi sql로 바꿔보기
+
+-- 테스트 학생이 수강하고 있는 과목이름을 모두 출력
+select sub_name from subject where sub_id in(select sub_id from student where sname = '테스트');
+-- 테스트 학생이 수강하고있는 과목, 학생명을 출력
+select su.sub_name,st.sname from student st, subject su where st.sub_id = su.sub_id and st.sname = '테스트';
+
+-- 김리액트 교수가 강의하는 과목의 학생들을 모두 출력
+select t.sname,s.sub_name,p.pname from student t 
+inner join subject s on t.sub_id = s.sub_id
+inner join professor p on t.sub_id = p.sub_id
+and pname = '김리액트';
+
+-- 과목별 수강인원, 과목명, 교수명 출력
+select sub_name,count(*) 수강인원 from student st, subject su where st.sub_id = su.sub_id group by su.sub_name;
+select su.sub_id,su.sub_name,count(*) 수강인원 from student st, subject su where st.sub_id = su.sub_id group by su.sub_id;
+select sub_name,수강인원,pname from(select su.sub_id,su.sub_name,count(*) 수강인원 from student st, subject su where st.sub_id = su.sub_id group by su.sub_id) a, professor p where a.sub_id = p.sub_id;
+
+-- 서브쿼리와 조인의 사용 상황의 차이 (반드시는 아니지만 편함)
+-- 하나의 테이블의 컬럼을 조회할 때 = 서브쿼리
+-- 여러 테이블의 여러개의 컬럼을 같이 조회할 때 = 조인
+
+select su.sub_name, count(st.sub_id) 수강인원, su.sub_id,p.pname
+from subject su inner join student st on su.sub_id = st.sub_id
+left outer join professor p on su.sub_id = p.sub_id group by su.sub_id,p.pname;
