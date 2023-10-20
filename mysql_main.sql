@@ -864,7 +864,7 @@ values ('hong','홍길동',curdate(),1234);
 -- commit; 커밋으로 phantom data를 물리적으로 저장한다
 select * from emp;
 
-insert emp values ('yang','양호승',curdate(),9999); -- ansi-sql 형식, 컬럼리스트 생략, 컬럼리스트 생략 시 만들때의 컬럼리스트를 기준으로 한다 (desc에서 확인가능)
+insert emp values ('jung','정호승',curdate(),9999); -- ansi-sql 형식, 컬럼리스트 생략, 컬럼리스트 생략 시 만들때의 컬럼리스트를 기준으로 한다 (desc에서 확인가능)
 desc emp;
 -- 
 insert emp (emp_name,hire_date,salary,emp_id) values ('hong1','홍길동',curdate(),1234); -- 컬럼리스트의 순서를 지키지 않으면 type error 발생
@@ -955,7 +955,7 @@ create table student(
     sub_id char(4), -- 컬럼명은 달라도 되지만 데이터타입은 같아야함, 보통 컬럼명은 참조할 컬럼과 같게 한다.
     email varchar(20),
     constraint student_sid_pk primary key(sid),
-    constraint student_sub_id_fk foreign key(sub_id) references subject(sub_id)
+    constraint student_sub_id_fk foreign key(sub_id) references subject(sub_id) on update cascade on delete cascade -- on update cascade, on delete cascade : 참조컬럼에 종속되어 업데이트,삭제시 연동됨
 );
 select * from information_schema.table_constraints where table_name = 'student';
 select * from information_schema.tables where table_name = 'student';
@@ -967,7 +967,7 @@ create table professor(
     phone varchar(20),
     sub_id char(4),
     constraint professor_pid_pk primary key(pid),
-    constraint professor_sub_id_fk foreign key(sub_id) references subject(sub_id)
+    constraint professor_sub_id_fk foreign key(sub_id) references subject(sub_id) on update cascade on delete cascade
 );
 select * from information_schema.table_constraints where table_name = 'professor';
 select * from information_schema.tables where table_name = 'professor';
@@ -994,7 +994,7 @@ select * from student;
 
 -- 교수 데이터 생성
 desc professor;
-insert professor values('P001','김교수','010-1234-5678','S001');
+insert professor values('P001','김교수','010-1234-5678','S009');
 insert professor values('P002','김리액트','010-1234-5678','S002');
 insert professor values('P003','김에스큐엘','010-1234-5678','S003');
 insert professor values('P004','김노드','010-1234-5678','S004');
@@ -1031,3 +1031,490 @@ select sub_name,수강인원,pname from(select su.sub_id,su.sub_name,count(*) �
 select su.sub_name, count(st.sub_id) 수강인원, su.sub_id,p.pname
 from subject su inner join student st on su.sub_id = st.sub_id
 left outer join professor p on su.sub_id = p.sub_id group by su.sub_id,p.pname;
+
+/*
+	데이터 수정 : update ~ set
+	형식 : update [테이블명] set [컬럼명=새로운데이터],[컬럼명=새로운데이터],[컬럼명=새로운데이터],...
+		   where [update 조건절]
+	** where 절이 생략되면 전체 테이블에 업데이트 적용
+*/
+-- emp로 시작하는 모든 테이블 조회
+select * from information_schema.tables where table_name like 'emp%';
+-- 테이블 삭제
+drop table employee_copy;
+-- employee 테이블을 복제하여 employee_copy 테이블 생성
+select * from employee;
+
+create table employee_copy
+as
+select * from employee; 
+
+-- mysql workbench 툴은 update,delete가 세이프 모드로 인해 default로 막아져있다
+-- safe모드 체크 풀고 리커넥트
+-- 또한 auto commit이 default다
+select * from employee_copy; -- 복제본 테이블에는 원본의 constraint가 복제되지 않음 not null은 복제되는듯 primary와 참조키가 복제되지않는듯
+desc employee_copy;
+set sql_safe_updates=0;
+update employee_copy set salary=8700 where emp_name = '홍길동';
+
+-- employee_copy 테이블의 전체 사원들의 연봉을 10% 인상
+update employee_copy set salary = salary*1.1;
+select * from employee_copy;
+-- 김삼순 사원의 사원명을 '김희진'으로 수정
+select * from employee_copy where emp_name = '김삼순';
+update employee_copy set emp_name = '김희진' where emp_id = 'S0004';
+select * from employee_copy where emp_name = '김희진';
+
+-- 스칼라서브쿼리를 이용한 데이터 수정, 업데이트 될 데이터를 서브쿼리를 이용하여 가져온다. 권장하는 방법은 아님
+-- 형식 : update [테이블명] set [컬럼명=(서브쿼리),... where [조건절]
+-- 김희진 사원의 부서를 영업부에서 정보시스템 부서로 이동
+select dept_id from department where dept_name = '정보시스템';
+update employee_copy set dept_id = (select dept_id from department where dept_name = '정보시스템') where emp_name = '김희진';
+select * from employee_copy where emp_name = '김희진';
+
+-- 박여사 사원과 같은 부서의 직원들 연봉을 10% 인상
+select dept_id from employee_copy where emp_name = '박여사';
+update employee_copy set salary = salary*1.1 where dept_id = (select d.dept_id from (select * from department where dept_id = (select dept_id from employee_copy where emp_name = '박여사')) d);
+-- 오라클에서는 자기참조가 가능하지만 mysql에서는 불가능
+-- employee_copy set salary = salary*1.1 where dept_id = (select dept_id from employee_copy where emp_name = '박여사');
+select emp_name,salary from employee_copy where dept_id = (select d.dept_id from (select * from department where dept_id = (select dept_id from employee_copy where emp_name = '박여사')) d);
+-- update employee_copy set salary = salary*1.1 where dept_id = (select dept_id from employee_copy where emp_name = '박여사'); 자기참조 오류 : 테이블 자기 자신을 참조할 수 없음;
+-- 인라인뷰로 별칭을 사용하는 방법, 조인을 사용하여 새 테이블을 임시로 사용하는 방법 등이 있다.
+
+
+-- 영업부 소속의 사원들 연봉을 10% 삭감
+select dept_id from department where dept_name = '영업';
+update employee_copy set salary = salary*0.9 where dept_id = (select dept_id from department where dept_name = '영업');
+select * from employee_copy where dept_id = (select dept_id from department where dept_name = '영업');
+
+select e1.dept_id,e1.emp_name,e1.salary*0.9,e2.salary from employee e1, employee_copy e2 where e1.emp_id = e2.emp_id and e1.dept_id =(select dept_id from department where dept_name = '영업');
+
+-- 안경태 사원과 같은 부서의 사원들의 입사일을 현재날짜로 수정
+select dept_id from employee_copy where emp_name = '안경태';
+update employee_copy set hire_date = curdate() where dept_id = (select d.dept_id from (select dept_id from employee_copy where emp_name = '안경태') d);
+select * from employee_copy where dept_id = 'acc';
+
+-- Join 후 인라인 뷰 방식 : select dept_id from (select ec1.dept_id from employee_copy ec1, employee_copy ec2 where ec1.emp_id = ec2.emp_id and ec1.emp_name = '안경태') e;
+
+/*
+	** 참조 관계에서의 데이터 수정 **
+    create 테이블 시 
+    on update cascade, on delete cascade를 제약사항에 넣어주어야한다
+    오라클은 다른형식으로 가능
+    형식 : constraint [제약사항이름설정칸] foreign key(참조컬럼명) references 참조할테이블(참조컬럼명) on update cascade on delete cascade
+ */
+ select * from subject;
+ select * from student;
+ select * from professor;
+
+-- html 과목의 sub_id 값을 S009로 수정
+select * from subject where sub_name = 'HTML';
+
+update subject set sub_id = 'S009' where sub_name = 'HTML'; -- update 되지 않는 이유 : 다른 테이블에서 sub_id를 참조하고 있기 때문
+-- 솔루션 : student, professor 테이블 생성 시 subject 테이블이 수정, 삭제될 때 참조하는 student, professor 테이블도 수정,삭제가 가능하도록 참조관계를 설정해야한다
+-- news를 삭제하려는데 남은 reply때문에 못하는 경우에 해당
+
+select * from student;
+-- ST01	홍길동	컴퓨터공학	S002	hong@naver.com
+-- ST02	아무개	컴퓨터공학	S003	amudog@naver.com
+-- ST03	테스트	컴퓨터공학	S004	test@naver.com
+-- ST04	제인도	컴퓨터공학	S001	janedoe@naver.com
+-- ST05	홍길동	컴퓨터공학	S003	hong@naver.com
+-- ST06	테스트	컴퓨터공학	S002	test@naver.com
+select * from professor;
+-- P001	김교수	010-1234-5678	S001
+-- P002	김리액트	010-1234-5678	S002
+-- P003	김에스큐엘	010-1234-5678	S003
+-- P004	김노드	010-1234-5678	S004
+select * from subject;
+select * from student;
+select * from professor;
+update subject set sub_id = 'S001' where sub_name = 'html';
+-- Mysql 과목을 id를 S005로 수정
+update subject set sub_id = 'S003' where sub_name = 'MySQl';
+
+-- 조인으로 subject, student, professor sub_id를 조회
+select sub_name,su.sub_id 과목, st.sub_id 수강과목, p.sub_id 강의과목 from subject su left outer join student st on su.sub_id = st.sub_id 
+inner join professor p on su.sub_id = p.sub_id;
+
+select distinct sub_name,su.sub_id 과목, st.sub_id 수강과목, p.sub_id 강의과목 from subject su left outer join student st on su.sub_id = st.sub_id 
+inner join professor p on su.sub_id = p.sub_id;
+
+-- 테이블 변경 : alter table
+-- 형식 : alter table [테이블명]
+-- 컬럼(제약) 추가 : add [컬럼명]	컬럼명 데이터타입(크기)
+-- 					 add [constraint] 제약이름 제약 (변경할컬럼)
+-- ex) ADD column_name data_type [length] [NULL | NOT NULL] [DEFAULT default_value]
+-- 컬럼 변경 : modify [컬럼명] [변경할데이터타입(크기)]
+-- 컬럼 삭제 : drop column [삭제할컬럼명]
+-- ** 컬럼 변경/삭제시 데이터가 존재한다면 반드시 데이터가 유실될 가능성이 있는 부분을 체크하도록 한다 **
+
+select * from emp;
+-- emp 테이블에 부서아이디 컬럼을 추가
+-- dept_id, 문자, 가변형 10
+alter table emp
+add column dept_id varchar(10);
+-- add dept_id varchar(10); column은 생략해도 되는듯
+-- 추가하는 테이블에 기존 데이터가 존재하는 경우에는 추가 컬럼의 제약사항을 null 허용으로 설정해야한다. 
+-- 기존에 데이터가 있으면 추가로 컬럼이 생겨날 때 null값이 들어가고 기존에 값이 없으면 null값이 들어가지 않기때문
+
+desc emp;
+-- emp 테이블의 dept_id 컬럼의 크기를 문자형, 5 변경
+alter table emp
+modify dept_id varchar(5);
+select * from emp;
+
+-- emp 테이블의 emp_id 컬럼의 데이터 타입을 char(4)로 변경
+alter table emp
+modify emp_id char(4); -- 오류 발생 : 내부의 값의 크기가 4를 초과하기 때문
+
+-- emp 테이블의 emp_id 컬럼의 데이터 타입을 char(8)로 변경
+alter table emp
+modify emp_id char(8);
+
+-- emp 테이블에 phone 컬럼 추가, 크기(10), null은 허용하지 않음
+alter table emp
+add phone varchar(10) not null; -- 다른 dbms에서는 오류가 발생할 수 있다. 그러나 mysql에서는 빈문자열이 들어간다 null값과는 다르다
+
+-- emp 테이블에 bonus 컬럼 추가, int, null은 허용하지 않음
+alter table emp add bonus int not null; -- bonus 칼럼에 숫자 데이터타입을 not null로 넣으니 0이 자동으로 들어간다
+select * from emp; 
+
+-- emp 테이블의 dept_id 컬럼 삭제
+alter table emp drop dept_id;
+select * from emp where phone ='';
+
+-- hrdb2019의 전체 테이블 목록 조회
+select * from information_schema.tables where table_schema = 'hrdb2019';
+
+-- 테이블명 변경 : rename
+-- emp 테이블의 이름을 emp_emp로 변경
+alter table emp rename emp_emp;
+
+-- 모든 테이블의 제약사항 목록 조회
+select * from information_schema.table_constraints where table_schema = 'hrdb2019';
+
+desc employee_copy;
+-- employee_copy 테이블 삭제
+select * from information_schema.tables where table_schema = 'hrdb2019';
+drop table employee_copy;
+-- employee 테이블을 복제하여 employee_copy 테이블 생성
+create table employee_copy
+as
+select * from employee where left(hire_date,4) in('2017','2018');
+select * from employee_copy;
+desc employee_copy;
+
+-- department 테이블을 복제하여 dept_copy 테이블 생성
+create table dept_copy
+as
+select * from department;
+desc dept_copy;
+
+-- employee_copy, dept_copy 테이블에 제약사항 추가
+-- 형식 : alter table [테이블명] add constraint [제약사항이름] [제약사항](컬럼)
+-- 한글이나 특수기호가 값인 컬럼에 primary key 제약사항 주지 않기 
+alter table employee_copy
+add constraint primary key(emp_id);
+-- employee_copy 테이블의 emp_id 컬럼에 기본키 제약을 추가
+-- 기본키 제약은 중복된 데이터값을 가진 컬럼에는 부여할 수 없다. (duplicate)
+-- 또한 기본키 제약은 한컬럼에 하나만 가능하다 두개 이상은 오류가 발생한다. (multiple)
+
+-- dept_copy 테이블의 dept_id 컬럼에 기본키 제약 추가
+select * from dept_copy;
+alter table dept_copy
+add constraint primary key(dept_id);
+desc dept_copy;
+-- employee_copy 테이블의 dept_id 컬럼에 dept_copy 테이블의 dept_id 컬럼을 참조하는 참조키 제약 추가
+select * from employee_copy;
+desc employee_copy;
+
+alter table employee_copy
+add constraint employee_copy_dept_id_fk foreign key(dept_id) references dept_copy(dept_id);
+-- dept_copy 테이블의 회계부서 아이디를 'ACD'로 변경
+update dept_copy set dept_id = 'ACC' WHERE DEPT_NAME = '회계'; -- cascade 설정을 하지 않으면 오류가 날 가능성 있음 참조하는 테이블이 같이 수정되지 않기 때문
+-- employee_copy 테이블에 추가된 참조키 제약 삭제하고 on update cascade 옵션을 추가하여 다시 제약 생성
+-- 제약 사항 삭제 : alter table [테이블명] drop constraint [제약명]
+-- 					alter table [테이블명] drop foreign key [제약명]
+select * from information_schema.table_constraints where table_name = 'employee_copy'; -- 제약명 확인
+select * from information_schema.table_constraints where table_name = 'dept_copy';
+
+alter table employee_copy
+drop foreign key employee_copy_dept_id_fk;
+
+-- foreign key를 넣을 땐 항상 on update cascade 옵션을 추가 할 것
+alter table employee_copy
+add constraint employee_copy_dept_id_fk foreign key(dept_id) references dept_copy(dept_id) on update cascade on delete cascade;
+
+
+-- 데이터 삭제 : delete 
+-- 형식 : delete from [테이블명] - 테이블에 존재하는 모든 데이터 삭제
+-- 		  delete from [테이블명] where [조건절] - 테이블에 존재하는 조건에 해당하는 데이터 삭제
+-- 모든 테이블 목록 조회
+select * from information_schema.tables where table_schema = 'hrdb2019';
+
+-- emp_emp 테이블의 데이터 조회
+select * from emp_emp;
+-- emp_id가 hong1인 사원을 삭제
+delete from emp_emp where emp_id = 'test2';
+-- emp_name이 테스트인 모든 사원을 삭제
+delete from emp_emp where emp_name = '홍길동';
+delete from emp_emp;
+drop table emp3;
+select * from information_schema.tables where table_name like 'emp%';
+
+create table emp_sys
+as
+select * from employee where dept_id = 'sys';
+
+select * from emp_sys;
+delete from emp_sys where emp_id = 'S0003';
+rollback; -- 마지막 커밋 이후 실제 db에 저장되지 않고 메모리에만 올라가 있던 작업들 롤백
+commit; -- 커밋 직전까지의 작업까지 완료 --> 실제 db에 저장
+select * from emp_sys;
+update emp_sys set hire_date = curdate() where emp_name = '한국인';
+select * from emp_sys;
+commit;
+-- 현재 AutoCommit 값 확인
+SELECT @@AUTOCOMMIT;
+
+-- autocommit 설정
+SET AUTOCOMMIT = 1;
+ 
+-- autocommit 해제
+-- edit의 preferences의 sql execution에서 workbench 실행 시 autocommit 옵션 체크박스를 해제해야한다 아니면 다음에 키면 똑같이 autocommit이 켜져있게된다.
+SET AUTOCOMMIT = 0;
+
+-- 테이블의 데이터 절삭 : truncate table [테이블명]
+select * from emp_sys;
+commit;
+delete from emp_sys;
+rollback; -- truncate는 rollback이 되지 않음 바로 실제 db에 적용됨
+truncate table emp_sys;
+
+-- ** DML(DATABASE MANIPULATE LANGUAGE)에 속하는 INSERT(C),SELECT(R), UPDATE(U), DELETE(D) 쿼리는 SET AUTOCOMMIT 설정에 영향을 받으므로 crud할때 c는 insert를 가리킨다.
+-- ** 게시판(board) : crud의 대표격인 게시판을 짤 줄 알아야한다. **
+-- 현재 트랜잭션 설정을 확인하는것이 중요 (MYSQL은 AUTOCOMMIT이 DEFAULT지만 다른 툴들은 아닌 것이 많다.)
+
+/* 
+	자동 행번호 생성 : auto_increment (oracle에선 sequence) *********************
+    형식 : 테이블 생성 시 기본키 컬럼(데이터중복X,NullX)에 데이터 타입 전후에 auto_increment입력
+    - 기본키를 별도로 입력받지 않는 테이블에서 기본키의 역할을 하도록 정의
+	
+    auto_increment 사용 조건 : https://g.co/bard/share/05d77c925daa
+*/
+-- 테이블 생성 : board
+select * from information_schema.tables where table_name like 'board%';
+drop table board;
+create table board(
+	bid int auto_increment primary key,
+    btitle varchar(50) not null,
+    bcontent varchar(200),
+    bdate date
+);
+select last_insert_id() from board;
+insert board(btitle,bcontent,bdate) values('title','content',curdate());
+select * from board;
+-- 지금까지만든 nid, id를 대체
+-- 이는 중복을 방지하는 기본키의 역할이지 화면상에 리스트를 출력할 때 사용하면 게시글이 삭제되었을 때 중간 번호가 비어 보일 수 있다.
+delete from board where bid = 4;
+commit;
+rollback;
+
+/*
+    
+	프로시저(procedure) : 데이터베이스 함수 - [인서트할테이블명]에 insert 명령이 실행되면 [트리거이름] 프로시저가 호출
+    예를들어 board2에 insert 할 시 --> [트리거이름] 프로시저가 호출 --> [임시키테이블명] 테이블의 id 값 반환
+    ******* MY SQL workbench에서 프로시저 옆에 주석을 달면 오류가 발생한다 매우 주의 다른 툴에서 mysql을 사용하면 괜찮다고한다*******
+    delimiter $$ 프로시저 시작
+    create trigger [트리거이름]
+    before insert on [인서트할테이블명] // insert가 일어나기 전에 트리거가 실행됨을 뜻함
+    for each row
+    begin
+		insert into [임시로키를넣어둘테이블명(키생성용)] values (null);
+        set new.[임시테이블컬럼명] = concat('문자', lpad(last_insert_id(),숫자자릿수,'0'));
+	end$$
+    delimiter ; 프로시저 종료
+    
+    -----
+    lpad는 left padding 값이 들어간 곳 왼쪽으로 원하는 문자 여기선 '0'을 원하는 숫자 자릿수만큼 채운다 (값이 들어간곳이 포함된 숫자 자릿수)
+    show triggers; 생성된 trigger를 보여준다
+    drop trigger [트리거명]; 트리거 삭제
+*/
+
+-- bid를 문자열+숫자 : 'ABC00001'로 만드는 법 - 프로시저 사용 
+
+delimiter $$ 
+    create trigger tg_board2_insert
+    before insert on board2
+    for each row
+    begin
+		insert into bnumber values (null);
+        set new.bid = concat('ABC', lpad(last_insert_id(),5,'0'));
+	end$$
+delimiter ;
+-- 트리거 선언
+drop table board2;
+create table board2(
+	bid varchar(10) primary key,
+    btitle varchar(50) not null,
+    bcontent varchar(200),
+    bdate date
+);
+
+
+select * from board2;
+
+insert board2(btitle,bcontent,bdate) values('title','content',curdate());
+
+-- ㄴ프로시저 사용
+-- board3 테이블 생성하고, board3 테이블의 bid 값은 'B_0001' 형식으로 생성
+-- board3_sequ 테이블을 생성하여 bid 마지막에 들어가는 숫자를 ...
+
+-- 프로시저 사용을 하지 않으면 힘든듯
+
+delimiter $$ 
+    create trigger tg_board3_insert
+    before insert on board3
+    for each row
+    begin
+		insert into bnumber values (null);
+        set new.bid = concat('B', lpad(last_insert_id(),3,'0'));
+	end$$
+delimiter ;
+
+drop table board3;
+drop table bnumber;
+create table bnumber(
+	id int auto_increment primary key
+);
+create table board3(
+	bid char(4) primary key,
+    btitle varchar(50),
+    bcontent varchar(200),
+    bdate date
+);
+select * from bnumber;
+select * from board3;
+desc board3;
+insert board3(btitle,bcontent,bdate) values('title','content',curdate());
+commit;
+
+-- 행번호 생성 : row_number() over(order by 정렬컬럼)
+-- 오라클 : rownum과 order by를 함께 사용 불가
+-- employee 테이블의 연봉 기준으로 정렬 한 후 행번호를 추가 조회
+select row_number() over(order by salary desc) as rownum,emp_name,emp_id,salary from employee;
+
+-- 정보시스템 부서의 사원들의 아이디, 사원명, 입사일, 연봉, 그리고 소속 본부명을 출력
+select row_number() over(order by salary desc) as rownum,e.emp_id,e.emp_name,e.hire_date,e.salary,d.dept_name,u.unit_name
+from employee e inner join department d on e.dept_id = d.dept_id
+				inner join unit u on u.unit_id = d.unit_id
+where dept_name = '정보시스템';
+-- anse-sql
+
+select row_number() over(order by salary desc) as rownum,e.emp_id,e.emp_name,e.hire_date,e.salary,d.dept_name,u.unit_name
+	from employee e, department d,unit u 
+		where e.dept_id = d.dept_id 
+		and d.unit_id = u.unit_id 
+			and dept_name = '정보시스템';
+-- oracle
+
+-- 휴가 사용 이유가 '두통'인 사원들 중에 영업,총무부서인 사원의 사원명, 폰번호, 부서명, 휴가사용 이유 조회
+-- 최종 데이터 출력 시 행번호 추가
+desc vacation;
+select row_number() over(order by emp_name) rownum, e.emp_name,e.phone,d.dept_name,v.reason
+from department d, employee e, vacation v
+	where e.dept_id = d.dept_id and e.emp_id = v.emp_id and v.reason = '두통' and dept_name = '영업';
+-- oracle
+select row_number() over(order by emp_name) rownum, e.emp_name,e.phone,d.dept_name,v.reason
+from employee e inner join department d on e.dept_id = d.dept_id
+				inner join vacation v on e.emp_id = v.emp_id
+                where v.reason = '두통' and dept_name in('영업','총무');
+-- anse-sql
+
+-- 휴가를 간 적이 있는 정보시스템 부서의 사원들을 출력
+select row_number() over(order by emp_id) as rnom, emp_id,emp_name,phone from employee where emp_id in(select distinct emp_id from vacation) and dept_id =(select dept_id from department where dept_name ='정보시스템');
+
+-- 서브쿼리를 사용해서 행번호를 추가 할 시 주의사항
+select * from 
+(select row_number() over(order by emp_id) as rno, emp_id ,emp_name,phone,dept_id 
+from employee 
+where emp_id in (select distinct emp_id from vacation)) A where dept_id = (select dept_id from department where dept_name = '정보시스템');
+-- 행번호가 띄엄띄엄생긴다.
+select distinct emp_id from vacation;
+
+/*  뷰(view) : 논리적인 테이블로 sql을 실행하여 생성되는 가상의 테이블
+	형식 : create view [view 이름]
+		   as 
+ 	 	   select * from [테이블명]
+	기존 테이블을 복사하는 cas는 물리적인 데이터가 실제로 복사되지만 뷰는 가상의 테이블이기 때문에 실제 db에 반영되지 않는다.
+    긴 select 서브쿼리를 view로 짧게 만들어 사용 일종의 단축키처럼
+    너무 많은 view도 메모리 효율에 좋지 않음
+*/
+-- 모든 뷰의 목록을 조회
+select * from information_schema.views where table_schema = 'hrdb2019';
+drop view emp_view;
+select * from emp_view;
+
+-- employee 테이블의 가상테이브 emp_view 생성
+create view emp_view
+as
+select * from employee;
+
+-- 실행한 sql쿼리를 sys_view 이름으로 뷰 생성
+create view sys_view
+as
+select row_number() over(order by salary desc) as rownum,e.emp_id,e.emp_name,e.hire_date,e.salary,d.dept_name,u.unit_name
+	from employee e, department d,unit u 
+		where e.dept_id = d.dept_id 
+		and d.unit_id = u.unit_id 
+			and dept_name = '정보시스템';
+            
+select * from sys_view;
+-- 긴 sql쿼리가 sys_view로 짧아졌다.
+
+-- employee,department,unit 세 테이블이 inner join한 테이블인 emp_view 생성
+create view emp_view
+as
+select e.emp_id,e.emp_name,d.dept_name,e.hire_date,e.retire_date,u.unit_name
+from employee e,department d,unit u
+where e.dept_id = d.dept_id and u.unit_id = d.unit_id;
+-- view로 테이블 3개가 조인된 테이블을 짧개 만들어서 조건절 부여
+select * from emp_view where left(hire_date,4)in('2014','2015');
+
+
+use myshop2019;
+select database();
+
+select * from customer where customer_id = 'mdpark'; -- mdpark
+select * from order_header where customer_id = 'mdpark';
+
+-- 박마당 고객이 어떤 상품 주문했는지 조회 고객아이디,고객명,주문아이디,상품명 
+-- 상품의 카테고리 포함
+-- 주문을 관리하는 사원정보 포함
+select count(*)
+from 
+(select c.customer_id,c.customer_name,h.order_id,p.product_name,e.employee_name,ca.category_name from customer c
+inner join order_header h on c.customer_id = h.customer_id
+inner join employee e on e.employee_id = h.employee_id
+inner join order_detail d on h.order_id = d.order_id
+inner join product p on p.product_id = d.product_id
+inner join sub_category s on s.sub_category_id = p.sub_category_id
+inner join category ca on ca.category_id = s.category_id
+where c.customer_id = 'mdpark') a;
+
+-- anse-sql
+create view MGM_PRODUCT
+as
+select h.order_id,c.customer_id,c.customer_name,e.employee_name,e.employee_id,p.product_name,ca.category_name,s.sub_category_name
+from customer c,order_header h,employee e,order_detail d,product p,sub_category s,category ca
+where c.customer_id = h.customer_id and h.employee_id = e.employee_id and h.order_id = d.order_id and p.product_id = d.product_id and s.sub_category_id = p.sub_category_id and ca.category_id = s.category_id;
+-- oracle
+drop view mgm_product;
+select * from information_schema.views where table_schema = 'myshop2019';
+select * from customer;
+-- 최천사 고객 주문건
+select * from mgm_product where customer_name = '최천사';
+-- 고객별 주문건수
+select customer_name,count(*) from mgm_product group by customer_name order by count(*);
+select row_number() over(order by count(*) desc) as rno,customer_name,count(*) ord_count from mgm_product group by customer_id,customer_name;
