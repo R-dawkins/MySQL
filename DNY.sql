@@ -77,6 +77,7 @@ alter table books
     references book_category(category) on delete cascade on update cascade;
 alter table books
 	modify translator varchar(30) default '없음';
+alter table books alter column translator set default '없음';
 alter table books
 	modify bname varchar(100) not null;
 alter table books
