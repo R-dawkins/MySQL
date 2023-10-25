@@ -1518,3 +1518,9 @@ select * from mgm_product where customer_name = '최천사';
 -- 고객별 주문건수
 select customer_name,count(*) from mgm_product group by customer_name order by count(*);
 select row_number() over(order by count(*) desc) as rno,customer_name,count(*) ord_count from mgm_product group by customer_id,customer_name;
+
+use hrdb2019;
+select database();
+
+
+
