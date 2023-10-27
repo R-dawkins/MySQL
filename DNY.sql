@@ -11,9 +11,10 @@ SET AUTOCOMMIT = 1;
 -- autocommit 해제
 -- edit의 preferences의 sql execution에서 workbench 실행 시 autocommit 옵션 체크박스를 해제해야한다 아니면 다음에 키면 똑같이 autocommit이 켜져있게된다.
 SET AUTOCOMMIT = 0;
-
+drop table dwitter;
 create table dwitter(
 	id varchar(20) primary key,
+    password varchar(100) not null,
     name varchar(20) not null,
     date date,
     content varchar(200)
@@ -22,6 +23,8 @@ select * from information_schema.tables where table_name = 'dwitter';
 select * from dwitter;
 desc dwitter;
 
+insert dwitter(id,password,name,date,content) values('1','1','1',curdate(),'1');
+delete from dwitter;
 select id,name,left(date,10) as date, content from dwitter;
 /*
 	news, news_reply 테이블 생성
@@ -102,3 +105,21 @@ select url,bname,author,translator,publisher,pday,price from books where categor
 select category_name,url,bname,author,translator,publisher,pday,price from books b inner join book_category c on b.category = c.category where b.category='BestSeller';
 select category_name,url,bname,author,translator,publisher,pday,price from books b inner join book_category c on b.category = c.category where b.category='DayBestSeller';
 delete from books where price = 'test';
+
+select category_name,url,bname,author,translator,publisher,pday,price from books b inner join book_category c on b.category = c.category;
+
+create view books_view
+as
+select bid, c.category, url, bname, author, translator, publisher, pday, price, category_name from books b inner join book_category c on b.category = c.category;
+select * from books_view;
+select bid, category_name,url,bname,author,translator,publisher,pday,format(price,0) price from books b inner join book_category c on b.category = c.category where b.category='DayBestSeller';
+
+create table yes_member(
+	id varchar(20) primary key,
+    name varchar(20) not null,
+    password varchar(100) not null
+);
+select * from yes_member;
+
+insert yes_member(id,name,password) values('1','2','333');
+delete from yes_member;
