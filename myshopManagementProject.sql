@@ -95,3 +95,29 @@ delimiter $$
         set new.employee_id = concat('D', lpad(last_insert_id(),4,'0'));
 	end$$
 delimiter ;
+select * from information_schema.views where table_schema = 'myshop2019';
+select * from myshop_view;
+
+create view cus_view
+as
+select customer_name,format(sum(sub_total),0) cus_sub_total,format(sum(delivery_fee),0) cus_delivery_fee,format(sum(total_due),0) cus_total_due from myshop_view group by customer_name;
+
+create view age_view
+as
+select left(birth_date,4) age,format(sum(sub_total),0) age_sub_total,format(sum(delivery_fee),0) age_delivery_fee,format(sum(total_due),0) age_total_due from myshop_view group by age;
+
+create view cat_view
+as
+select category_name,format(sum(sub_total),0) sub_total,format(sum(delivery_fee),0) delivery_fee,format(sum(total_due),0) total_due from myshop_view group by category_name;
+create view pro_view
+as
+select product_name,format(sum(sub_total),0) sub_total,format(sum(delivery_fee),0) delivery_fee,format(sum(total_due),0) total_due  from myshop_view group by product_name;
+
+select * from cus_view join age_view;
+select * from cat_view;
+select * from pro_view;
+select * from employee_copy;
+select product_name,sub_total,delivery_fee,total_due from pro_view;
+
+update employee_copy set employee_name = '홍길동' where employee_id = 'D0009';
+commit;
