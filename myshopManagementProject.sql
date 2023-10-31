@@ -113,6 +113,9 @@ create view pro_view
 as
 select product_name,format(sum(sub_total),0) sub_total,format(sum(delivery_fee),0) delivery_fee,format(sum(total_due),0) total_due  from myshop_view group by product_name;
 
+create table product_copy
+as
+select * from product;
 select * from cus_view join age_view;
 select * from cat_view;
 select * from pro_view;
@@ -121,3 +124,19 @@ select product_name,sub_total,delivery_fee,total_due from pro_view;
 
 update employee_copy set employee_name = '홍길동' where employee_id = 'D0009';
 commit;
+use myshop2019;
+select * from product;
+select * from sub_category;
+select * from customer;
+select * from order_header;
+insert product(product_id,product_name,sub_category_id) values('AAA00','테스트','20003');
+update product set sub_category_id = '20003' where product_id = 'AD001';
+select * from product p,sub_category s,category c where p.sub_category_id = s.sub_category_id and s.category_id = c.category_id;
+select substring(sub_category_id,4,2) sc from product group by sc having sc between '01' and '03';
+
+select substring(birth_date,3,2) bd from customer c,order_header o where c.customer_id = o.customer_id group by bd having bd between 60 and 62 order by bd asc;
+select * from product_copy;
+select * from order_detail;
+
+select row_number() over(order by sub_category_id) rownum,p.product_id,product_name,s.sub_category_id,sub_category_name,c.category_id,category_name from product_copy p,sub_category s, category c where p.sub_category_id = s.sub_category_id and s.category_id = c.category_id
+;
