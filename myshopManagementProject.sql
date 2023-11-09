@@ -140,3 +140,6 @@ select * from order_detail;
 
 select row_number() over(order by sub_category_id) rownum,p.product_id,product_name,s.sub_category_id,sub_category_name,c.category_id,category_name from product_copy p,sub_category s, category c where p.sub_category_id = s.sub_category_id and s.category_id = c.category_id
 ;
+select * from employee;
+select row_number() over(order by emp_id) rownum,emp_id,emp_name,hire_date,dept_id,phone,email from employee;
+select row_number() over(order by emp_id) rownum,emp_id,emp_name,hire_date,dept_name,phone,email from employee e, department d where e.dept_id = d.dept_id;
