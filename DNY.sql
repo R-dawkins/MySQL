@@ -123,3 +123,56 @@ select * from yes_member;
 
 insert yes_member(id,name,password) values('1','2','333');
 delete from yes_member;
+select * from information_schema.tables where table_schema = 'hrdb2019';
+
+create table yes24(
+	bid int auto_increment primary key,
+    image varchar(500),
+    top_tag varchar(20),
+    kind varchar(10),
+    title varchar(50) not null,
+    comment varchar(100),
+    author varchar(50),
+    company varchar(50),
+    pdate date, -- 출판일 
+    price int,
+    point long,
+    sale_index long,
+    review int,
+    de_date date, -- 도착예정일 
+    goods varchar(50),
+    bsid varchar(20)
+);
+desc yes_24;
+drop table yes_24;
+insert into yes24(image,top_tag,kind,title,comment,author,company,pdate,price,point,sale_index,review,de_date,goods,bsid)
+values('https://image.yes24.com/goods/2312211/L',
+		'예약 판매',
+		'도서',
+        '코스모스9',
+        '',
+        '하와이 대저택',
+        '웅진지식하우스',
+        curdate(),
+        19800,
+        990,
+        281628,
+        9,
+        curdate()+10,
+        '이달의 굿즈',
+        'SS'
+);
+select * from yes24;
+delete from yes24 where bid = 8;
+select * from book_category;
+create table yes24_category(
+	bsid varchar(20) primary key,
+    bstitle varchar(30)
+);
+insert into yes24_category(bsid,bstitle) 
+values(
+'RTBS',
+'국내도서 실시간 베스트'
+);
+select * from yes24_category;
+commit;
