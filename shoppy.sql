@@ -19,3 +19,16 @@ insert shoppy_products(image,name,price,discription,pdate) values(
 "발렌티노 자켓",
 209000,
 "발렌티노 - 자켓",curdate());
+
+select * from information_schema.tables where table_schema = 'hrdb2019';
+-- 회원테이블 : shoppy_member
+-- 컬럼리스트 : id, name, pass 암호화, phone, mdate(시분초 포함)
+create table shoppy_member(
+	id varchar(20) primary key,
+    name varchar (30) not null,
+    pass varchar(100) not null,
+    phone varchar(20),
+    mdate datetime
+);
+desc shoppy_member;
+select * from shoppy_member;
